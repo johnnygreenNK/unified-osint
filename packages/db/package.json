@@ -1,0 +1,18 @@
+{
+  "name": "@unified-osint/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "migrate": "node scripts/migrate.mjs",
+    "test": "vitest run",
+    "typecheck": "echo 'no typecheck needed (plain JS + SQL)'",
+    "build": "echo 'no build needed'"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.4"
+  }
+}

@@ -1,0 +1,88 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  background: #0b0d12;
+  color: #e6e8eb;
+}
+
+.container {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 32px 20px;
+}
+
+input, select, button {
+  font-size: 14px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #333944;
+  background: #151821;
+  color: #e6e8eb;
+}
+
+button {
+  cursor: pointer;
+  background: #2b6cb0;
+  border-color: #2b6cb0;
+  color: white;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background: transparent;
+  color: #e6e8eb;
+}
+
+.card {
+  border: 1px solid #262b35;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+  background: #11131a;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.error {
+  color: #f87171;
+  font-size: 13px;
+}
+
+.muted {
+  color: #8b95a7;
+  font-size: 13px;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #333944;
+}
+
+.result-item {
+  border-bottom: 1px solid #1d212b;
+  padding: 10px 0;
+}
+
+.result-item:last-child {
+  border-bottom: none;
+}

@@ -1,0 +1,28 @@
+{
+  "name": "unified-osint",
+  "private": true,
+  "version": "0.1.0",
+  "description": "UnifiedOSINT - modularna platforma OSINT (panel WWW + Telegram, wiele adapterow, deduplikacja, live search)",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev:api": "pnpm --filter @unified-osint/api dev",
+    "dev:worker": "pnpm --filter @unified-osint/worker dev",
+    "dev:web": "pnpm --filter @unified-osint/web dev",
+    "test": "pnpm -r test",
+    "test:unit": "vitest run",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "migrate": "node packages/db/scripts/migrate.mjs",
+    "migrate:test-db": "cross-env NODE_ENV=test node packages/db/scripts/migrate.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4",
+    "@types/node": "^20.16.11",
+    "cross-env": "^7.0.3"
+  },
+  "packageManager": "pnpm@9.12.0"
+}
