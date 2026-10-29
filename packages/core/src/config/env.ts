@@ -24,6 +24,15 @@ export const envSchema = z.object({
   JWT_ACCESS_TTL: z.string().default("15m"),
   JWT_REFRESH_TTL: z.string().default("30d"),
   AUTH_ARGON2_MEMORY_KB: z.coerce.number().int().positive().default(19456),
+  /**
+   * Tryb jednego konta: gdy baza nie ma zadnego uzytkownika, API tworzy
+   * automatycznie jedno konto z rola 'admin' o tych danych, a frontend
+   * loguje sie na nie bez formularza (patrz POST /auth/auto-login - dziala
+   * tylko gdy w systemie jest dokladnie jedno konto). Haslo nie jest tu
+   * potrzebne, bo logowanie haslem nie jest uzywane w tym trybie.
+   */
+  DEFAULT_USER_EMAIL: z.string().email().default("local@unified-osint.local"),
+  DEFAULT_USER_DISPLAY_NAME: z.string().min(1).default("Operator"),
 
   API_HOST: z.string().default("0.0.0.0"),
   API_PORT: z.coerce.number().int().positive().default(4000),
@@ -47,6 +56,7 @@ export const envSchema = z.object({
   ADAPTER_RDAP_ENABLED: boolFromString,
   ADAPTER_CRTSH_ENABLED: boolFromString,
   ADAPTER_WAYBACK_ENABLED: boolFromString,
+  ADAPTER_SHODAN_INTERNETDB_ENABLED: boolFromString,
 
   SNUSBASE_API_KEY: z.string().optional().default(""),
   SNUSBASE_API_BASE_URL: z.string().url().default("https://api.snusbase.com"),
@@ -58,6 +68,28 @@ export const envSchema = z.object({
   INTELX_API_BASE_URL: z.string().url().default("https://2.intelx.io"),
 
   HIBP_API_KEY: z.string().optional().default(""),
+  HIBP_API_BASE_URL: z.string().url().default("https://haveibeenpwned.com/api/v3"),
+  /** Wymagany przez API HIBP (bez tego naglowka zapytanie zwraca 403) - niewrazliwa wartosc. */
+  HIBP_USER_AGENT: z.string().min(1).default("UnifiedOSINT"),
+
+  LEAKCHECK_API_KEY: z.string().optional().default(""),
+  LEAKCHECK_API_BASE_URL: z.string().url().default("https://leakcheck.io/api/v2"),
+
+  HUDSONROCK_API_KEY: z.string().optional().default(""),
+  HUDSONROCK_API_BASE_URL: z.string().url().default("https://api.hudsonrock.com"),
+
+  EMAILREP_API_KEY: z.string().optional().default(""),
+  /** Wymagany przez API EmailRep (bez tego naglowka 403) - niewrazliwa wartosc. */
+  EMAILREP_USER_AGENT: z.string().min(1).default("UnifiedOSINT"),
+
+  // --- Zaslepki `not_configured` - brak publicznej dokumentacji API self-serve
+  // (sprzedaz B2B/enterprise albo dokumentacja za logowaniem) - patrz stubs.ts.
+  DEHASHED_API_KEY: z.string().optional().default(""),
+  SPYCLOUD_API_KEY: z.string().optional().default(""),
+  FLARE_API_KEY: z.string().optional().default(""),
+  KELA_API_KEY: z.string().optional().default(""),
+  CONSTELLA_API_KEY: z.string().optional().default(""),
+
   HUNTER_API_KEY: z.string().optional().default(""),
   SHODAN_API_KEY: z.string().optional().default(""),
   CENSYS_API_ID: z.string().optional().default(""),

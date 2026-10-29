@@ -11,15 +11,6 @@ import type {
 } from "@unified-osint/core";
 import { safeFetch, AdapterHttpError } from "@unified-osint/core";
 
-/**
- * Pola uznawane za wrazliwe w rekordach Snusbase - nigdy nie trafiaja w pelnej
- * postaci do `attrs` (ktore przeplywaja nieprzefiltrowane do SSE/UI/Telegrama).
- * Pelna, niezamaskowana wartosc istnieje wylacznie w `AdapterRecord.raw`,
- * ktory orchestrator zapisuje do `source_records.raw` (RLS, nieeksponowane
- * dzis przez zaden endpoint poza nowym /source-records/:id/reveal).
- */
-const SENSITIVE_KEYS = new Set(["password", "pass", "hash", "salt"]);
-
 interface SnusbaseResponse {
   took?: number;
   size?: number;
@@ -149,15 +140,6 @@ export class SnusbaseAdapter implements SourceAdapter {
 
     const attrs: Record<string, unknown> = { breachTable };
     for (const [key, value] of Object.entries(record)) {
-      if (SENSITIVE_KEYS.has(key.toLowerCase())) {
-        if (key.toLowerCase() === "hash" && typeof value === "string" && value.length > 0) {
-          attrs.hashMasked = true;
-          attrs.hashPrefix = `${value.slice(0, 4)}…`;
-        } else {
-          attrs[`${key}Masked`] = true;
-        }
-        continue;
-      }
       attrs[key] = value;
     }
 

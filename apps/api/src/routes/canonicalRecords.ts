@@ -15,13 +15,68 @@ interface RelatedRecordRow {
   shared_keys: string[];
 }
 
-/**
- * Korelacja tozsamosci miedzy rekordami kanonicznymi (patrz migracja 0008 i
- * packages/core/src/dedup/dedupEngine.ts) - NIGDY automatyczne scalenie,
- * tylko sugestia "te rekordy dzielily ten e-mail/IP/telefon/domene".
- */
+interface CanonicalRecordRow {
+  id: string;
+  kind: string;
+  title: string;
+  summary: string | null;
+  attrs: Record<string, unknown>;
+  first_seen: string;
+  last_seen: string;
+  source_count: number;
+}
+
+interface SourceRecordRow {
+  id: string;
+  source_id: string;
+  source_record_id: string;
+  url_canonical: string | null;
+  observed_at: string;
+  raw: Record<string, unknown> | null;
+}
+
 export async function canonicalRecordsRoutes(app: FastifyInstance): Promise<void> {
   const { pool } = app.appContext;
+
+  // GET /canonical-records/:id — pełne dane rekordu kanonicznego + rekordy źródłowe
+  // (łącznie z `raw`, bez maskowania — patrz decyzja uzytkownika w packages/adapters).
+  app.get("/canonical-records/:id", { preHandler: app.authenticate }, async (request, reply) => {
+    const { id } = idParamsSchema.parse(request.params);
+    const user = request.currentUser!;
+    const ctx = userContext(user.id, user.role);
+
+    const canonRes = await withAppContext(pool, ctx, (client) =>
+      client.query<CanonicalRecordRow>(
+        `select id, kind, title, summary, attrs, first_seen, last_seen, source_count
+         from canonical_records where id = $1`,
+        [id]
+      )
+    );
+    if (canonRes.rows.length === 0) throw new NotFoundError("Rekord kanoniczny nie istnieje lub brak dostepu");
+    const canon = canonRes.rows[0]!;
+
+    const srRes = await withAppContext(pool, ctx, (client) =>
+      client.query<SourceRecordRow>(
+        `select sr.id, sr.source_id, sr.source_record_id, sr.url_canonical, sr.observed_at, sr.raw
+         from source_records sr
+         join record_sources rs on rs.source_record_id = sr.id
+         where rs.canonical_id = $1
+         order by sr.observed_at desc`,
+        [id]
+      )
+    );
+
+    const sourceRecords = srRes.rows.map((sr) => ({
+      id: sr.id,
+      sourceId: sr.source_id,
+      sourceRecordId: sr.source_record_id,
+      urlCanonical: sr.url_canonical,
+      observedAt: sr.observed_at,
+      raw: sr.raw ?? {},
+    }));
+
+    reply.send({ ...canon, sourceRecords });
+  });
 
   app.get("/canonical-records/:id/related", { preHandler: app.authenticate }, async (request, reply) => {
     const { id } = idParamsSchema.parse(request.params);

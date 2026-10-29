@@ -13,7 +13,7 @@ interface SourceRow {
 }
 
 export async function sourcesRoutes(app: FastifyInstance): Promise<void> {
-  const { pool } = app.appContext;
+  const { pool, registry } = app.appContext;
 
   app.get("/sources", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.currentUser!;
@@ -23,6 +23,12 @@ export async function sourcesRoutes(app: FastifyInstance): Promise<void> {
          from sources order by category, id`
       )
     );
-    reply.send({ sources: result.rows });
+    // queryTypes nie jest w DB - to statyczna wlasciwosc kodu adaptera (descriptor.capabilities),
+    // potrzebna w UI do filtrowania, ktore zrodla maja sens dla wybranego typu zapytania.
+    const sources = result.rows.map((row) => ({
+      ...row,
+      queryTypes: registry.get(row.id)?.descriptor.capabilities.map((c) => c.queryType) ?? [],
+    }));
+    reply.send({ sources });
   });
 }

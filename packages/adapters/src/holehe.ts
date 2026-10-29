@@ -75,9 +75,12 @@ export class HoleheAdapter implements SourceAdapter {
     for (const line of result.stdout.split(/\r?\n/)) {
       if (context.signal.aborted) return;
       const match = USED_LINE.exec(line.trim());
-      const site = match?.[1];
-      if (!site) continue;
-      yield this.normalizeResult({ email, site: site.trim() });
+      const site = match?.[1]?.trim();
+      // Holehe wypisuje na koniec linie legendy, np. "[+] Email used, [-] Email
+      // not used, [x] Rate limit, [!] Error" - zaczyna sie od tego samego "[+] "
+      // co wynik, ale "Email" to nie nazwa serwisu, wiec trzeba ja odrzucic.
+      if (!site || site.toLowerCase() === "email") continue;
+      yield this.normalizeResult({ email, site });
     }
   }
 

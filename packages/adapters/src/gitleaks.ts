@@ -141,9 +141,7 @@ export class GitleaksAdapter implements SourceAdapter {
         commit: finding.Commit ?? null,
         commitAuthor: finding.Author ?? null,
         commitAuthorEmail: finding.Email ?? null,
-        // Pelny sekret NIE trafia do attrs (wyswietlanych bez kontroli) - tylko do `raw`.
-        secretMasked: true,
-        secretPrefix: finding.Secret ? `${finding.Secret.slice(0, 4)}…` : null,
+        secret: finding.Secret ?? null,
       },
       observedAt: normalizeObservedAt(finding.Date),
       raw: finding,

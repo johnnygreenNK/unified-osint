@@ -11,6 +11,7 @@ import {
   type Logger,
 } from "@unified-osint/core";
 import { createDefaultRegistry, type StaticAdapterRegistry } from "@unified-osint/adapters";
+import { ensureDefaultUser } from "./auth/ensureDefaultUser.js";
 
 export interface AppContext {
   env: Env;
@@ -26,9 +27,10 @@ export async function buildAppContext(): Promise<AppContext> {
   const logger = createLogger("api", env.LOG_LEVEL);
   const pool = getPool(env.DATABASE_URL);
   const boss = await getBoss(env.DATABASE_URL, env.WORKER_PG_SCHEMA);
-  const registry = createDefaultRegistry(env);
+  const registry = createDefaultRegistry(env, pool);
 
   await syncSourcesFromRegistry(pool, registry);
+  await ensureDefaultUser(pool, env);
 
   const orchestrator = new SearchOrchestrator(
     pool,

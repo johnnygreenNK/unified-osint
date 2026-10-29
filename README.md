@@ -16,7 +16,8 @@ Monorepo pnpm (workspaces: `apps/*`, `packages/*`):
 - [apps/worker](apps/worker) — worker zadań wyszukiwania (pg-boss)
 - [packages/core](packages/core) — kontrakty, orkiestrator, dedup, bezpieczny fetch, RLS helpers
 - [packages/adapters](packages/adapters) — adaptery źródeł (demo, dns, snusbase,
-  stuby intelx/epieos, adaptery CLI: amass, trufflehog, gitleaks, sherlock,
+  HIBP, LeakCheck.io, Hudson Rock, stuby intelx/epieos/dehashed/spycloud/flare/
+  kela/constella, adaptery CLI: amass, trufflehog, gitleaks, sherlock,
   maigret, holehe, theHarvester)
 - [packages/db](packages/db) — migracje SQL + runner migracji
 
@@ -31,16 +32,80 @@ ustawiane wyłącznie przez `withAppContext()` — nigdy ręcznie w zapytaniach.
   `snusbase` (realne API, aktywny tylko gdy `SNUSBASE_API_KEY` ustawiony
   w `.env` — bez klucza wraca do `not_configured`, zwracając jawny status,
   nie fałszywe wyniki).
+- Dodatkowe działające adaptery breach-data (oficjalne, publicznie
+  udokumentowane API, aktywne tylko gdy ustawiony odpowiedni klucz —
+  bez klucza `not_configured`):
+  - `hibp` — Have I Been Pwned API v3 (`HIBP_API_KEY`). Sprawdza e-mail
+    pod kątem wycieków (`/breachedaccount`) i wklejek (`/pasteaccount`).
+    Źródło: https://haveibeenpwned.com/API/v3
+  - `leakcheck` — LeakCheck.io API Pro v2 (`LEAKCHECK_API_KEY`).
+    Sprawdza `email`/`username`/`phone` (typy enterprise-only jak `domain`/
+    `hash`/`password` celowo pominięte). Źródło: https://docs.leakcheck.io/
+  - `hudsonrock` — Hudson Rock / Cavalier API v3 (`HUDSONROCK_API_KEY`).
+    Wyszukiwanie infekcji infostealer po `email`/`username`
+    (`search-by-login`). Pole `password` w `credentials[]` jest maskowane
+    tak samo jak w Snusbase. Źródło: https://docs.hudsonrock.com/
+- Adaptery bez klucza, aktywne domyślnie (publiczne API, bez limitu
+  kluczowego — mogą być wyłączone przez odpowiedni `ADAPTER_*_ENABLED=false`):
+  - `crtsh` — crt.sh (Certificate Transparency log search). Zapytanie
+    `domain` → `GET https://crt.sh/?q={domain}&output=json`, wynik
+    deduplikowany po `id` (crt.sh zwraca jeden wiersz per certyfikat×SAN).
+    Źródło: https://crt.sh/ (nieudokumentowane formalnie, ale stabilne i
+    powszechnie używane API zweryfikowane na żywo).
+  - `rdap` — RDAP (Registration Data Access Protocol, następca WHOIS).
+    Zapytania `domain`/`ip` przez bootstrap `https://rdap.org/domain/{d}`
+    lub `/ip/{ip}` — `safeFetch` automatycznie obsługuje przekierowania
+    do właściwego rejestru. Źródło: https://rdap.org/,
+    https://www.rfc-editor.org/rfc/rfc9083
+  - `wayback` — Wayback Machine CDX Server API. Zapytania `domain`/`url`
+    przez `http://web.archive.org/cdx/search/cdx?url=...&output=json`
+    (dla `domain` z `matchType=domain&collapse=urlkey`). Wiersz nagłówka
+    JSON parsowany dynamicznie (bez zakładania kolejności pól), zgodnie
+    z dokumentacją. Źródło: https://github.com/internetarchive/wayback/blob/master/wayback-cdx-server/README.md
+  - `shodan_internetdb` — Shodan InternetDB (darmowy, bez klucza, tylko
+    użycie niekomercyjne wg ToS Shodana). Zapytanie `ip` →
+    `GET https://internetdb.shodan.io/{ip}`; 404 oznacza brak danych
+    (nie błąd). Źródło: https://internetdb.shodan.io/
+- Adaptery breach/threat-intel z opcjonalnym kluczem:
+  - `emailrep` — EmailRep.io (Sublime Security). Zapytanie `email` →
+    `GET https://emailrep.io/{email}` z nagłówkami `Key` i `User-Agent`
+    (`EMAILREP_API_KEY`, `EMAILREP_USER_AGENT`). Źródło:
+    https://docs.sublime.security/reference/emailrep-introduction.
+    **Uwaga**: Sublime Security nie wydaje już nowych kluczy EmailRep
+    (serwis nie jest już aktywnie rozwijany — działają tylko klucze
+    wydane wcześniej; darmowe nieautoryzowane zapytania są wyłączone).
+    Bez klucza adapter zostaje w stanie `not_configured` i nie wykonuje
+    żadnego wywołania sieciowego.
+- `h8mail` — **nie zaimplementowany, decyzja świadoma.** Domyślnie h8mail
+  zapytuje Scylla.sh (nieoficjalny agregator wykradzionych danych/zrzutów
+  wycieków), co jest objęte projektową zasadą odmowy integrowania
+  szarorynkowych/nielegalnych źródeł breach-danych. Wyłączenie Scylli
+  (`-sk`) pozostawia h8mail bez użytecznej funkcjonalności bezkluczowej —
+  pozostałe jego źródła (HaveIBeenPwned, Hunter.io itd.) są już pokryte
+  przez dedykowane adaptery (`hibp`) lub wymagają osobnej decyzji. Temat
+  zgłoszony użytkownikowi do decyzji.
 - Adaptery w stanie `not_configured` (bez publicznego API / wymagają
   dostępu enterprise): `intelx`, `epieos`. Epieos nie ma publicznej
   dokumentacji API — dostęp jest tylko na zapytanie/enterprise;
   implementacja zablokowana do czasu uzyskania dostępu przez użytkownika.
-- Snusbase: pola wrażliwe wyniku (`password`, `pass`, `hash`, `salt`) są
-  domyślnie maskowane w `attrs` (nigdy nie trafiają nieprzemaskowane do
-  SSE/UI/Telegrama) — pełna wartość jest zapisana tylko w
-  `source_records.raw` (RLS, właściciel rekordu) i odsłaniana wyłącznie
-  przez `POST /source-records/:id/reveal` (rola `analyst`/`admin`,
-  każde wywołanie logowane w `audit_logs`, append-only).
+- Zaślepki `not_configured` dla pozostałych komercyjnych źródeł
+  breach/infostealer — brak publicznej, self-serve dokumentacji API
+  (sprzedaż tylko B2B/enterprise albo dokumentacja dostępna jedynie po
+  zalogowaniu/demo z działem sprzedaży), więc implementacja zablokowana
+  zgodnie z zasadą "nie wymyślaj endpointów API": `dehashed` (DeHashed —
+  dokumentacja API v2 niedostępna publicznie bez konta), `spycloud`
+  (SpyCloud — dostęp enterprise-sales-gated), `flare` (Flare.io —
+  dostęp enterprise-sales-gated), `kela` (KELA — dostęp enterprise-sales-
+  gated), `constella` (Constella Intelligence — dostęp enterprise-sales-
+  gated). Każdy ma odpowiedni `*_API_KEY` w `.env.example` i
+  `verificationNote` w [stubs.ts](packages/adapters/src/stubs.ts)
+  wyjaśniający, co trzeba zweryfikować przed realną implementacją.
+- Snusbase, HIBP, LeakCheck, Hudson Rock: pola wrażliwe wyniku (`password`,
+  `pass`, `hash`, `salt`) są domyślnie maskowane w `attrs` (nigdy nie
+  trafiają nieprzemaskowane do SSE/UI/Telegrama) — pełna wartość jest
+  zapisana tylko w `source_records.raw` (RLS, właściciel rekordu) i
+  odsłaniana wyłącznie przez `POST /source-records/:id/reveal` (rola
+  `analyst`/`admin`, każde wywołanie logowane w `audit_logs`, append-only).
 - **Brak** wyszukiwania po haśle (plaintext/wildcard) w bazach wycieków —
   świadomie poza zakresem (ryzyko nadużycia). Adaptery breach-data
   (Snusbase, HIBP) są ograniczone do sprawdzenia, czy dany `email`/`username`

@@ -5,16 +5,29 @@ import { DnsAdapter } from "../src/dns.js";
 import { createNotConfiguredStub } from "../src/notConfiguredStub.js";
 
 describe("StaticAdapterRegistry / createDefaultRegistry", () => {
-  it("rejestruje wszystkie oczekiwane adaptery pod ich id", () => {
+  it("rejestruje wszystkie oczekiwane adaptery pod ich id (demo domyslnie wylaczony)", () => {
     const registry = createDefaultRegistry();
     const ids = registry.list().map((a) => a.descriptor.id);
+    expect(ids).not.toContain("demo");
     expect(ids.sort()).toEqual(
       [
-        "demo",
         "dns",
         "epieos",
         "intelx",
         "snusbase",
+        "hibp",
+        "leakcheck",
+        "hudsonrock",
+        "crtsh",
+        "rdap",
+        "wayback",
+        "shodan_internetdb",
+        "emailrep",
+        "dehashed",
+        "spycloud",
+        "flare",
+        "kela",
+        "constella",
         "amass",
         "trufflehog",
         "gitleaks",
@@ -38,13 +51,25 @@ describe("StaticAdapterRegistry / createDefaultRegistry", () => {
     expect(registry.get("nieistniejacy-adapter")).toBeUndefined();
   });
 
-  it("demo i dns sa skonfigurowane, platne zrodla bez klucza - nie", () => {
+  it("demo jest obecny tylko gdy ADAPTER_DEMO_ENABLED, dns zawsze skonfigurowany, platne zrodla bez klucza - nie", () => {
     const registry = createDefaultRegistry();
-    expect(registry.get("demo")?.isConfigured()).toBe(true);
+    expect(registry.get("demo")).toBeUndefined();
+    const registryWithDemo = createDefaultRegistry({ ADAPTER_DEMO_ENABLED: true });
+    expect(registryWithDemo.get("demo")?.isConfigured()).toBe(true);
     expect(registry.get("dns")?.isConfigured()).toBe(true);
     expect(registry.get("snusbase")?.isConfigured()).toBe(false);
     expect(registry.get("intelx")?.isConfigured()).toBe(false);
     expect(registry.get("epieos")?.isConfigured()).toBe(false);
+    for (const id of ["hibp", "leakcheck", "hudsonrock", "dehashed", "spycloud", "flare", "kela", "constella", "emailrep"]) {
+      expect(registry.get(id)?.isConfigured()).toBe(false);
+    }
+  });
+
+  it("adaptery bez klucza (crtsh/rdap/wayback/shodan_internetdb) sa skonfigurowane domyslnie", () => {
+    const registry = createDefaultRegistry();
+    for (const id of ["crtsh", "rdap", "wayback", "shodan_internetdb"]) {
+      expect(registry.get(id)?.isConfigured()).toBe(true);
+    }
   });
 
   it("adaptery CLI bez skonfigurowanej sciezki binarki sa not_configured", () => {

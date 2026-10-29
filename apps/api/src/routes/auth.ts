@@ -30,18 +30,19 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   const accessTtlSeconds = durationToSeconds(env.JWT_ACCESS_TTL);
   const refreshTtlSeconds = durationToSeconds(env.JWT_REFRESH_TTL);
   const cookieSecure = env.NODE_ENV === "production";
+  const cookieSameSite: "lax" | "strict" = env.NODE_ENV === "production" ? "strict" : "lax";
 
   function setSessionCookies(reply: import("fastify").FastifyReply, accessToken: string, refreshToken: string): void {
     reply.setCookie("access_token", accessToken, {
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: cookieSameSite,
       secure: cookieSecure,
       path: "/",
       maxAge: accessTtlSeconds,
     });
     reply.setCookie("refresh_token", refreshToken, {
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: cookieSameSite,
       secure: cookieSecure,
       path: "/",
       maxAge: refreshTtlSeconds,
@@ -100,6 +101,34 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       invalidCredentials();
       return;
     }
+
+    const accessToken = signAccessToken({ sub: row.id, role: row.role }, env.JWT_ACCESS_SECRET, env.JWT_ACCESS_TTL);
+    const refreshToken = signRefreshToken(
+      { sub: row.id, role: row.role, jti: crypto.randomUUID() },
+      env.JWT_REFRESH_SECRET,
+      env.JWT_REFRESH_TTL
+    );
+    setSessionCookies(reply, accessToken, refreshToken);
+    reply.send({ id: row.id, email: row.email, displayName: row.display_name, role: row.role });
+  });
+
+  app.post("/auth/auto-login", async (request, reply) => {
+    // Tryb jednego konta: loguje bez hasla, ale tylko gdy w systemie jest
+    // dokladnie jeden uzytkownik - w przeciwnym razie frontend ma pokazac
+    // normalny formularz logowania (kilka kont = nie da sie wybrac ktore).
+    const result = await withAppContext(pool, serviceContext(), (client) =>
+      client.query<UserRow>(
+        "select id, email, password_hash, display_name, role, disabled_at from users where disabled_at is null"
+      )
+    );
+    if (result.rows.length !== 1) {
+      reply.code(403).send({
+        error: "auto_login_unavailable",
+        message: "Automatyczne logowanie dziala tylko przy dokladnie jednym koncie",
+      });
+      return;
+    }
+    const row = result.rows[0]!;
 
     const accessToken = signAccessToken({ sub: row.id, role: row.role }, env.JWT_ACCESS_SECRET, env.JWT_ACCESS_TTL);
     const refreshToken = signRefreshToken(
