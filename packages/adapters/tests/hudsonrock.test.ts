@@ -26,7 +26,7 @@ function fakeResult(overrides: Partial<SafeFetchResult>): SafeFetchResult {
 }
 
 describe("HudsonRockAdapter", () => {
-  it("maskuje plaintext hasla w credentials i zwraca znormalizowane rekordy", async () => {
+  it("zwraca znormalizowane rekordy, hasla w credentials jawne (decyzja uzytkownika: bez maskowania)", async () => {
     const body = JSON.stringify({
       data: [
         {
@@ -55,8 +55,7 @@ describe("HudsonRockAdapter", () => {
     expect(record.kind).toBe("infostealer_infection");
     expect(record.attrs.stealer).toBe("RedLine");
     const credentials = record.attrs.credentials as Array<Record<string, unknown>>;
-    expect(credentials[0]!.passwordMasked).toBe(true);
-    expect(credentials[0]!.password).toBeUndefined();
+    expect(credentials[0]!.password).toBe("plaintext");
     expect(credentials[0]!.username).toBe("test@example.com");
 
     expect(fetchFn).toHaveBeenCalledWith(

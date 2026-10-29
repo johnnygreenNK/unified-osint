@@ -100,6 +100,10 @@ export const envSchema = z.object({
   TELEGRAM_BOT_TOKEN: z.string().optional().default(""),
   TELEGRAM_WEBHOOK_SECRET: z.string().optional().default(""),
   TELEGRAM_WEBHOOK_URL: z.string().optional().default(""),
+  /** Jedyny Telegram user_id z dostepem do bota (tryb jednoosobowy - patrz apps/telegram-bot). Puste = bot wylaczony. */
+  TELEGRAM_ALLOWED_USER_ID: z.string().optional().default(""),
+  /** Baza API, do ktorej bot sie loguje (auto-login) i odpytuje wyszukiwania - domyslnie lokalny Fastify. */
+  TELEGRAM_API_BASE_URL: z.string().url().default("http://localhost:4000"),
 
   OUTBOUND_HTTP_ALLOW_PRIVATE_NETWORKS: boolFromString,
   OUTBOUND_HTTP_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),

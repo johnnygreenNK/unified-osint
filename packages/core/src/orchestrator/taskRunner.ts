@@ -99,6 +99,10 @@ export async function processSearchTaskJob(data: SearchTaskJobData, deps: TaskRu
           kind: record.kind,
           title: record.title,
           sourceCount: outcome.sourceCount,
+          // Pola do bezposredniego wyswietlenia na liscie wynikow (bez
+          // koniecznosci otwierania szczegolow) - zgodnie z decyzja
+          // uzytkownika dane wrazliwe pokazujemy wprost, bez maskowania.
+          attrs: record.attrs ?? {},
         }
       );
     }

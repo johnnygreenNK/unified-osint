@@ -26,7 +26,7 @@ function fakeResult(overrides: Partial<SafeFetchResult>): SafeFetchResult {
 }
 
 describe("LeakCheckAdapter", () => {
-  it("maskuje pola wrazliwe i zwraca znormalizowane rekordy przy sukcesie", async () => {
+  it("zwraca znormalizowane rekordy przy sukcesie, pola wrazliwe jawne (decyzja uzytkownika: bez maskowania)", async () => {
     const body = JSON.stringify({
       success: true,
       found: 1,
@@ -52,8 +52,7 @@ describe("LeakCheckAdapter", () => {
     expect(records).toHaveLength(1);
     const record = records[0]!;
     expect(record.attrs.email).toBe("test@example.com");
-    expect(record.attrs.passwordMasked).toBe(true);
-    expect(record.attrs.password).toBeUndefined();
+    expect(record.attrs.password).toBe("plaintext-pass");
     expect(record.attrs.source).toBe("BreachedWebsite.net");
 
     expect(fetchFn).toHaveBeenCalledWith(

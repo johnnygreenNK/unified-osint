@@ -11,6 +11,7 @@
     "dev:api": "pnpm --filter @unified-osint/api dev",
     "dev:worker": "pnpm --filter @unified-osint/worker dev",
     "dev:web": "pnpm --filter @unified-osint/web dev",
+    "dev:telegram-bot": "pnpm --filter @unified-osint/telegram-bot dev",
     "test": "pnpm -r test",
     "test:unit": "vitest run",
     "lint": "pnpm -r lint",

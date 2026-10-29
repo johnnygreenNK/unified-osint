@@ -5,6 +5,7 @@ import {
   fingerprintBySourceId,
   fingerprintByUrl,
   fingerprintByContent,
+  fingerprintByCredential,
   type FingerprintType,
 } from "./fingerprint.js";
 import { NORMALIZATION_VERSION } from "./normalize.js";
@@ -79,7 +80,10 @@ const MAX_RAW_BYTES = 32 * 1024;
  *  2) trescia (TYLKO kind=document/paste),
  *  3) identyfikator w ramach zrodla (fallback - wykrywa duplikaty tylko WEWNATRZ jednego zrodla).
  */
-function pickStrongFingerprint(
+/** Aliasy pol w `attrs`, z ktorych wydobywamy "sekret" wyciekowy (patrz fingerprintByCredential). */
+const SECRET_ATTR_ALIASES = ["password", "pass", "hash", "phash"];
+
+export function pickStrongFingerprint(
   record: AdapterRecord,
   sourceId: string
 ): { type: FingerprintType; value: string } {
@@ -89,7 +93,24 @@ function pickStrongFingerprint(
   if ((record.kind === "document" || record.kind === "paste") && record.summary) {
     return { type: "content", value: fingerprintByContent(normalizeText(record.summary)) };
   }
+  // breach_record: dwa zrodla (np. Snusbase i LeakCheck) czesto agreguja te
+  // sama bazowa wyciekniecie/logi stealerow. Jesli oba zwracaja ta sama pare
+  // identyfikator+sekret, to ten sam rekord - laczymy go w jeden kanoniczny
+  // wpis zamiast pokazywac duplikat per zrodlo.
+  if (record.kind === "breach_record") {
+    const attrs = record.attrs ?? {};
+    const identity =
+      firstNonEmptyString(attrs.email) ?? firstNonEmptyString(attrs.username);
+    const secret = SECRET_ATTR_ALIASES.map((k) => firstNonEmptyString(attrs[k])).find((v) => v != null);
+    if (identity && secret) {
+      return { type: "content", value: fingerprintByCredential(identity, secret) };
+    }
+  }
   return { type: "id", value: fingerprintBySourceId(sourceId, record.sourceRecordId) };
+}
+
+function firstNonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
 }
 
 function truncateRaw(raw: unknown): unknown {

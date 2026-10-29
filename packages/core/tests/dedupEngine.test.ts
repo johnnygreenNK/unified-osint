@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractCorrelationKeys } from "../src/dedup/dedupEngine.js";
+import { extractCorrelationKeys, pickStrongFingerprint } from "../src/dedup/dedupEngine.js";
 import type { AdapterRecord } from "../src/contracts/adapter.js";
 
 function record(attrs: Record<string, unknown>): AdapterRecord {
@@ -50,5 +50,33 @@ describe("extractCorrelationKeys", () => {
 
   it("zwraca puste bez zadnych znanych atrybutow", () => {
     expect(extractCorrelationKeys(record({ breachTable: "x" }))).toEqual([]);
+  });
+});
+
+describe("pickStrongFingerprint - dedup breach_record miedzy zrodlami", () => {
+  it("ta sama para email+haslo z dwoch roznych zrodel daje identyczny fingerprint (laczy sie w jeden rekord)", () => {
+    const snusbase = record({ email: "Test@Example.com", password: "plaintext-pass" });
+    const leakcheck = record({ email: "test@example.com", password: "plaintext-pass" });
+    const fpA = pickStrongFingerprint(snusbase, "snusbase");
+    const fpB = pickStrongFingerprint(leakcheck, "leakcheck");
+    expect(fpA).toEqual(fpB);
+  });
+
+  it("ta sama para email+hash (bez password) tez sie laczy", () => {
+    const a = record({ email: "test@example.com", hash: "abc123" });
+    const b = record({ email: "test@example.com", hash: "abc123" });
+    expect(pickStrongFingerprint(a, "snusbase")).toEqual(pickStrongFingerprint(b, "leakcheck"));
+  });
+
+  it("rozne hasla dla tego samego emaila NIE laczy sie", () => {
+    const a = record({ email: "test@example.com", password: "pass1" });
+    const b = record({ email: "test@example.com", password: "pass2" });
+    expect(pickStrongFingerprint(a, "snusbase")).not.toEqual(pickStrongFingerprint(b, "leakcheck"));
+  });
+
+  it("bez email/username i bez password/hash - fallback na id per-zrodlo (brak dedupu miedzy zrodlami)", () => {
+    const a = record({ breachTable: "x" });
+    const fp = pickStrongFingerprint(a, "snusbase");
+    expect(fp.type).toBe("id");
   });
 });

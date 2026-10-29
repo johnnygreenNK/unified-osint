@@ -30,6 +30,17 @@ export function fingerprintByContent(normalizedText: string): string {
   return sha256(`content:${normalizedText}`);
 }
 
+/**
+ * Warstwa 1: para identyfikator+sekret (np. email+haslo/hash) dla
+ * kind=breach_record. Ten sam wyciek trafiajacy do dwoch zrodel (np.
+ * Snusbase i LeakCheck, oba agregujace logi stealerow) daje identyczna
+ * pare - bez tego dedup leci tylko po sourceRecordId i duplikaty miedzy
+ * zrodlami nigdy sie nie laczily (patrz dedupEngine.ts).
+ */
+export function fingerprintByCredential(identity: string, secret: string): string {
+  return sha256(`cred:${identity.trim().toLowerCase()}:${secret}`);
+}
+
 function sha256(input: string): string {
   return createHash("sha256").update(input, "utf8").digest("hex");
 }

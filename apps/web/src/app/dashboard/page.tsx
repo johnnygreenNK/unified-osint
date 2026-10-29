@@ -73,6 +73,37 @@ interface CanonicalResult {
   sourceCount: number;
   priority: number;
   hasCredential: boolean;
+  attrs: Record<string, unknown>;
+}
+
+/** Pierwsza niepusta wartosc string dla ktoregokolwiek z aliasow pola w attrs. */
+function pickAttr(attrs: Record<string, unknown>, keys: string[]): string | null {
+  for (const k of keys) {
+    const v = attrs[k];
+    if (typeof v === "string" && v.length > 0) return v;
+    if (typeof v === "number") return String(v);
+  }
+  return null;
+}
+
+interface BreachDisplay {
+  email: string | null;
+  username: string | null;
+  password: string | null;
+  date: string | null;
+  breachName: string;
+}
+
+/** Wyciaga pola do bezposredniego wyswietlenia na karcie wycieku - bez klikania w szczegoly. */
+function breachDisplay(result: CanonicalResult): BreachDisplay {
+  const a = result.attrs;
+  return {
+    email: pickAttr(a, ["email"]),
+    username: pickAttr(a, ["username"]),
+    password: pickAttr(a, ["password", "pass"]),
+    date: pickAttr(a, ["breachDate", "created", "collected", "updated"]),
+    breachName: result.title.replace(/^Wyciek:\s*/, ""),
+  };
 }
 
 interface LiveEvent {
@@ -220,6 +251,7 @@ export default function DashboardPage() {
           sourceCount,
           priority: calcPriority(kind, sourceCount),
           hasCredential,
+          attrs: (p.attrs as Record<string, unknown>) ?? {},
         });
       }
     }
@@ -607,18 +639,18 @@ function kindBadge(kind: string) {
 }
 
 function BreachCard({ result, active, onClick }: { result: CanonicalResult; active: boolean; onClick: () => void }) {
+  const d = breachDisplay(result);
   return (
     <div className={`cred-item ${active ? "active" : ""}`} onClick={onClick} role="button" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && onClick()}>
       <div className="cred-item-top">
-        <span className="cred-item-title">{result.title}</span>
-        <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
-          {result.sourceCount > 1 && <span className="badge badge-green">{result.sourceCount} źródła</span>}
-          <span className="badge badge-red">Wyciek</span>
-        </div>
+        <span className="cred-item-title">Wyciek: {d.breachName}</span>
+        {result.sourceCount > 1 && <span className="badge badge-green">{result.sourceCount} źródła</span>}
       </div>
       <div className="cred-attrs">
-        <span className="attr-pill"><strong>źródło:</strong>{result.sourceId}</span>
-        <span className="attr-pill sensitive">⚠ dane wrażliwe</span>
+        {d.email && <span className="attr-pill mono"><strong>mail:</strong>{d.email}</span>}
+        {!d.email && d.username && <span className="attr-pill mono"><strong>login:</strong>{d.username}</span>}
+        {d.password && <span className="attr-pill mono"><strong>hasło:</strong>{d.password}</span>}
+        {d.date && <span className="attr-pill mono"><strong>data:</strong>{d.date}</span>}
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SafeFetchResult } from "@unified-osint/core";
 import { AdapterHttpError } from "@unified-osint/core";
-import { SnusbaseAdapter } from "../src/snusbase.js";
+import { SnusbaseAdapter, prettyBreachName } from "../src/snusbase.js";
 
 function fakeContext() {
   return {
@@ -25,8 +25,20 @@ function fakeResult(overrides: Partial<SafeFetchResult>): SafeFetchResult {
   };
 }
 
+describe("prettyBreachName", () => {
+  it("zamienia nazwe tabeli na czytelna nazwe wycieku", () => {
+    expect(prettyBreachName("2042_TRELLO_COM_15M_TECH_012024")).toBe("trello.com");
+    expect(prettyBreachName("1716_RAIDFORUMS_COM_478K_HACKING_092020")).toBe("raidforums.com");
+    expect(prettyBreachName("0001_STEALERLOGS_NA_121M_MALWARE_2023")).toBe("Stealerlogs");
+  });
+
+  it("zwraca surowa nazwe, gdy wzorzec nie pasuje", () => {
+    expect(prettyBreachName("random-2021")).toBe("Random-2021");
+  });
+});
+
 describe("SnusbaseAdapter", () => {
-  it("maskuje pola wrazliwe i zwraca znormalizowane rekordy przy sukcesie", async () => {
+  it("zwraca znormalizowane rekordy przy sukcesie, pola wrazliwe jawne (decyzja uzytkownika: bez maskowania)", async () => {
     const body = JSON.stringify({
       took: 1,
       size: 1,
@@ -47,11 +59,8 @@ describe("SnusbaseAdapter", () => {
     expect(records).toHaveLength(1);
     const record = records[0]!;
     expect(record.attrs.email).toBe("test@example.com");
-    expect(record.attrs.hashMasked).toBe(true);
-    expect(record.attrs.hashPrefix).toBe("ab12…");
-    expect(record.attrs.hash).toBeUndefined();
-    expect(record.attrs.passwordMasked).toBe(true);
-    expect(record.attrs.password).toBeUndefined();
+    expect(record.attrs.hash).toBe("ab12cd34ef");
+    expect(record.attrs.password).toBe("plaintext");
     expect(record.sourceRecordId).toBe("42");
 
     expect(fetchFn).toHaveBeenCalledWith(

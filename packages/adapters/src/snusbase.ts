@@ -151,7 +151,7 @@ export class SnusbaseAdapter implements SourceAdapter {
       sourceRecordId: naturalId ?? `${breachTable}:${sha256(JSON.stringify(record))}`,
       canonicalUrl: null,
       kind: "breach_record",
-      title: `Wyciek: ${breachTable}`,
+      title: `Wyciek: ${prettyBreachName(breachTable)}`,
       summary: email ? `E-mail: ${email}` : username ? `Username: ${username}` : null,
       attrs,
       observedAt: normalizeObservedAt(record.created ?? record.updated),
@@ -183,4 +183,44 @@ function normalizeObservedAt(value: unknown): string | null {
 
 function sha256(input: string): string {
   return createHash("sha256").update(input, "utf8").digest("hex");
+}
+
+/**
+ * Nazwy tabel Snusbase obserwowane w realnych odpowiedziach API maja postac
+ * "<id>_<NAZWA_CZESCI>_<ROZMIAR>_<KATEGORIA>_<MMRRRR>", np.
+ * "2042_TRELLO_COM_15M_TECH_012024" -> "trello.com". To wylacznie kosmetyka
+ * wyswietlania (nie wplywa na dedup/fingerprint) - jesli wzorzec nie pasuje,
+ * zwracamy surowa nazwe tabeli bez zgadywania.
+ */
+const SIZE_SUFFIX_RE = /^\d+(\.\d+)?[KMB]$/i;
+const KNOWN_CATEGORY_SUFFIXES = new Set([
+  "TECH", "HACKING", "MUSIC", "MALWARE", "GAMING", "SOCIAL", "FINANCE",
+  "DATING", "EDUCATION", "SHOPPING", "FORUM", "NA", "MISC", "GOV",
+]);
+const KNOWN_TLDS = new Set(["COM", "NET", "ORG", "IO", "CO", "GG", "PL", "APP", "DEV", "ME"]);
+
+export function prettyBreachName(breachTable: string): string {
+  const parts = breachTable.split("_").filter(Boolean);
+  if (parts.length === 0) return breachTable;
+
+  if (/^\d+$/.test(parts[0]!)) parts.shift();
+  // Rozmiar/kategoria/data moga wystapic w roznej kolejnosci na koncu nazwy -
+  // zdejmujemy je az zaden wzorzec juz nie pasuje.
+  let trimmed = true;
+  while (trimmed && parts.length > 1) {
+    trimmed = false;
+    const last = parts[parts.length - 1]!;
+    if (/^\d{4,6}$/.test(last) || SIZE_SUFFIX_RE.test(last) || KNOWN_CATEGORY_SUFFIXES.has(last.toUpperCase())) {
+      parts.pop();
+      trimmed = true;
+    }
+  }
+
+  if (parts.length === 0) return breachTable;
+
+  const last = parts[parts.length - 1]!.toUpperCase();
+  if (KNOWN_TLDS.has(last)) {
+    return parts.map((p) => p.toLowerCase()).join(".");
+  }
+  return parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
 }

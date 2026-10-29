@@ -29,7 +29,7 @@ function fakeSpawnResult(overrides: Partial<SafeSpawnResult> = {}): SafeSpawnRes
 const REPO_URL = "https://github.com/example/repo";
 
 describe("GitleaksAdapter", () => {
-  it("klonuje, skanuje i maskuje znaleziony sekret w attrs (pelna wartosc tylko w raw)", async () => {
+  it("klonuje, skanuje i zwraca znaleziony sekret jawnie w attrs (decyzja uzytkownika: bez maskowania)", async () => {
     const finding = {
       RuleID: "generic-api-key",
       Description: "Generic API Key",
@@ -60,9 +60,7 @@ describe("GitleaksAdapter", () => {
 
     expect(records).toHaveLength(1);
     const record = records[0]!;
-    expect(record.attrs.secretMasked).toBe(true);
-    expect(record.attrs.secretPrefix).toBe("SUPE…");
-    expect(JSON.stringify(record.attrs)).not.toContain("SUPER-SECRET-VALUE-123");
+    expect(record.attrs.secret).toBe("SUPER-SECRET-VALUE-123");
     expect((record.raw as typeof finding).Secret).toBe("SUPER-SECRET-VALUE-123");
     expect(record.sourceRecordId).toBe("fp-1");
   });
