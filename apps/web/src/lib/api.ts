@@ -82,3 +82,18 @@ export function startSearch(query: string, queryType?: string, sourceIds?: strin
 export function cancelSearch(searchId: string): Promise<{ ok: true }> {
   return request(`/searches/${searchId}/cancel`, { method: "POST" });
 }
+
+export interface RelatedRecord {
+  id: string;
+  kind: string;
+  title: string;
+  summary: string | null;
+  first_seen: string;
+  last_seen: string;
+  source_count: number;
+  shared_keys: string[];
+}
+
+export function fetchRelatedRecords(canonicalRecordId: string): Promise<{ related: RelatedRecord[] }> {
+  return request(`/canonical-records/${canonicalRecordId}/related`);
+}

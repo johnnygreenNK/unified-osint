@@ -63,7 +63,7 @@ export async function processSearchTaskJob(data: SearchTaskJobData, deps: TaskRu
   }
 
   const attempt = await markTaskRunning(deps.pool, taskId);
-  const timeoutMs = deps.defaultTimeoutMs;
+  const timeoutMs = adapter.descriptor.timeoutMs ?? deps.defaultTimeoutMs;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const startedAt = Date.now();

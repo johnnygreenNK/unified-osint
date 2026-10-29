@@ -45,6 +45,12 @@ export interface AdapterDescriptor {
   cost: SourceCostInfo;
   /** Krotki opis wymaganych uprawnien/planu, pokazywany w UI gdy not_configured. */
   setupInstructions: string;
+  /**
+   * Nadpisanie domyslnego timeoutu zadania (ms) dla tego konkretnego adaptera.
+   * Gdy brak - taskRunner uzywa `defaultTimeoutMs` (budzet dla szybkich adapterow HTTP).
+   * Adaptery CLI (klonowanie repo, skanowanie) ustawiaja to w registry.ts na CLI_ADAPTER_TIMEOUT_MS.
+   */
+  timeoutMs?: number;
 }
 
 export interface SearchContext {

@@ -122,6 +122,15 @@ async function singleRequest(
             );
             return;
           }
+          // Od Node 20 `autoSelectFamily` (happy eyeballs) jest wlaczone
+          // domyslnie i Socket.connect woła lookup z `{ all: true }`,
+          // oczekujac callback(err, addresses[]) zamiast callback(err, address,
+          // family) - bez tej rozdzielnej sciezki kazde polaczenie https przez
+          // safeFetch rzuca wewnetrzny TypeError "Invalid IP address: undefined".
+          if (lookupOptions.all) {
+            callback(null, [{ address: pinnedAddress.address, family: pinnedAddress.family }] as never);
+            return;
+          }
           callback(null, pinnedAddress.address, pinnedAddress.family);
         },
       },

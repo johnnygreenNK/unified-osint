@@ -15,7 +15,9 @@ Monorepo pnpm (workspaces: `apps/*`, `packages/*`):
 - [apps/api](apps/api) — API (Fastify): auth, REST, SSE
 - [apps/worker](apps/worker) — worker zadań wyszukiwania (pg-boss)
 - [packages/core](packages/core) — kontrakty, orkiestrator, dedup, bezpieczny fetch, RLS helpers
-- [packages/adapters](packages/adapters) — adaptery źródeł (demo, dns, stuby snusbase/intelx/epieos)
+- [packages/adapters](packages/adapters) — adaptery źródeł (demo, dns, snusbase,
+  stuby intelx/epieos, adaptery CLI: amass, trufflehog, gitleaks, sherlock,
+  maigret, holehe, theHarvester)
 - [packages/db](packages/db) — migracje SQL + runner migracji
 
 Własny Postgres 16 (bez Supabase). Autoryzacja: e-mail + hasło (argon2id),
@@ -25,13 +27,63 @@ ustawiane wyłącznie przez `withAppContext()` — nigdy ręcznie w zapytaniach.
 
 ### Co jest naprawdę zaimplementowane, a co nie
 
-- Działające adaptery: `demo` (dane testowe, oznaczone w UI), `dns`.
-- Adaptery w stanie `not_configured` (brak klucza API w `.env`): `snusbase`,
-  `intelx`, `epieos`. Zwracają jawny status, nie fałszywe wyniki.
+- Działające adaptery: `demo` (dane testowe, oznaczone w UI), `dns`,
+  `snusbase` (realne API, aktywny tylko gdy `SNUSBASE_API_KEY` ustawiony
+  w `.env` — bez klucza wraca do `not_configured`, zwracając jawny status,
+  nie fałszywe wyniki).
+- Adaptery w stanie `not_configured` (bez publicznego API / wymagają
+  dostępu enterprise): `intelx`, `epieos`. Epieos nie ma publicznej
+  dokumentacji API — dostęp jest tylko na zapytanie/enterprise;
+  implementacja zablokowana do czasu uzyskania dostępu przez użytkownika.
+- Snusbase: pola wrażliwe wyniku (`password`, `pass`, `hash`, `salt`) są
+  domyślnie maskowane w `attrs` (nigdy nie trafiają nieprzemaskowane do
+  SSE/UI/Telegrama) — pełna wartość jest zapisana tylko w
+  `source_records.raw` (RLS, właściciel rekordu) i odsłaniana wyłącznie
+  przez `POST /source-records/:id/reveal` (rola `analyst`/`admin`,
+  każde wywołanie logowane w `audit_logs`, append-only).
 - **Brak** wyszukiwania po haśle (plaintext/wildcard) w bazach wycieków —
   świadomie poza zakresem (ryzyko nadużycia). Adaptery breach-data
   (Snusbase, HIBP) są ograniczone do sprawdzenia, czy dany `email`/`username`
   wystąpił w wycieku i gdzie.
+- **Adaptery CLI (Etap 3), działają natywnie na Windows, bez Docker-sandboxingu**
+  — każdy wymaga ręcznej instalacji binarki i wskazania jej ścieżki w `.env`
+  (patrz `.env.example`); bez tego status to `not_configured`, zweryfikowane
+  end-to-end (rejestr → DB → realne wyszukiwanie przez API/worker):
+  - `amass`, `theharvester` — pasywny recon domen/subdomen. Zweryfikowane
+    na `example.com`: obie binarki uruchamiają się i parsują wynik poprawnie
+    (testy jednostkowe), ale dla tej konkretnej domeny (IANA-reserved, brak
+    realnej infrastruktury) zwracają 0 wyników w pełnym budżecie czasu
+    (`CLI_ADAPTER_TIMEOUT_MS`, domyślnie 120 s) — potrzebna domena z realnym
+    footprintem DNS, aby zobaczyć wyniki.
+  - `gitleaks`, `trufflehog` — skan sekretów w repo git (klon + skan).
+    Zweryfikowane end-to-end na publicznym testowym repo
+    `trufflesecurity/test_keys`: gitleaks znajduje 3 sekrety w ~2 s,
+    trufflehog znajduje 8 sekretów w ~65 s. Pełna, nieshaskowana wartość
+    sekretu istnieje tylko w `source_records.raw` (ten sam wzorzec co
+    Snusbase) — `attrs`/UI/SSE dostają wyłącznie wersję zredagowaną.
+  - `sherlock`, `maigret` — wyszukiwanie nazwy użytkownika po publicznych
+    profilach. Zweryfikowane na `torvalds`: sherlock 86 trafień w ~49 s,
+    maigret 1 potwierdzone trafienie w ~110 s (maigret domyślnie sprawdza
+    dużo więcej serwisów niż sherlock, więc przy tym samym budżecie czasu
+    zwraca mniej w pełni zweryfikowanych kont).
+  - `holehe` — sprawdza istnienie konta po e-mailu przez ~150 przepływów
+    "zapomniałem hasła". **Świadomie bez ograniczania funkcjonalności**
+    (decyzja użytkownika, mimo ryzyka ToS/wzorca nadużycia) — używać tylko
+    do autoryzowanego OSINT. Zweryfikowane end-to-end: 15 trafień w ~12 s.
+  - Każdy adapter CLI ma własny budżet czasu `CLI_ADAPTER_TIMEOUT_MS`
+    (domyślnie 120 s) ustawiany per-adapter w `registry.ts`, odrębny od
+    `DEFAULT_ADAPTER_TIMEOUT_MS` (15 s) używanego przez szybkie adaptery
+    HTTP — bez tego rozdzielenia wolne skanowanie (np. pełny klon historii
+    git w trufflehog) było ucinane po 15 s, zanim zdążyło zwrócić wynik.
+  - **Recon-ng / SpiderFoot — nie zaimplementowane (go/no-go: no-go na
+    tym etapie).** Oba to frameworki modułowe (dziesiątki/setki modułów,
+    część wymaga własnych kluczy API, SpiderFoot ma też tryb web UI/serwer)
+    — integracja 1:1 z kontraktem `SourceAdapter` (jedno zapytanie, jeden
+    strumień wyników) wymagałaby wyboru i utrzymania konkretnej podgrupy
+    modułów per typ zapytania, a nie prostego wrapera CLI jak pozostałe
+    narzędzia. Do rozważenia jako osobny, większy etap (np. tylko wybrane
+    moduły pasywne SpiderFoot przez jego REST API), nie jako kolejny prosty
+    adapter CLI.
 
 ## Wymagania
 
@@ -83,10 +135,11 @@ docker compose up --build
 Migracje SQL (`packages/db/migrations`) są stosowane automatycznie przez
 jednorazowy serwis `migrate` przed startem `api`/`worker`.
 
-Aby włączyć płatne adaptery (Snusbase/Epieos/IntelX), wpisz klucze API w
-lokalnym `.env` i uruchom `docker compose up --build` ponownie (lub
-zrestartuj procesy lokalne) — status źródła w tabeli `sources` przełączy
-się z `not_configured` na `active`.
+Aby włączyć Snusbase, wpisz `SNUSBASE_API_KEY` w lokalnym `.env` i
+uruchom `docker compose up --build` ponownie (lub zrestartuj procesy
+lokalne) — status źródła w tabeli `sources` przełączy się z
+`not_configured` na `active`. Epieos/IntelX pozostają `not_configured`
+do czasu uzyskania dostępu API (patrz wyżej).
 
 ## Testy
 

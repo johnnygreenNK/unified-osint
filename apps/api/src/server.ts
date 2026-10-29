@@ -9,6 +9,8 @@ import { healthRoutes } from "./routes/health.js";
 import { authRoutes } from "./routes/auth.js";
 import { sourcesRoutes } from "./routes/sources.js";
 import { searchesRoutes } from "./routes/searches.js";
+import { sourceRecordsRoutes } from "./routes/sourceRecords.js";
+import { canonicalRecordsRoutes } from "./routes/canonicalRecords.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -44,6 +46,8 @@ export async function buildServer(appContext: AppContext): Promise<FastifyInstan
   await app.register(authRoutes);
   await app.register(sourcesRoutes);
   await app.register(searchesRoutes);
+  await app.register(sourceRecordsRoutes);
+  await app.register(canonicalRecordsRoutes);
 
   return app;
 }

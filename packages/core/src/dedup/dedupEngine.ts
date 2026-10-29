@@ -1,6 +1,6 @@
 import type { PoolClient } from "pg";
 import type { AdapterRecord } from "../contracts/adapter.js";
-import { normalizeUrl, normalizeText } from "./normalize.js";
+import { normalizeUrl, normalizeText, normalizeEmail, normalizeIp, normalizePhone, normalizeDomain } from "./normalize.js";
 import {
   fingerprintBySourceId,
   fingerprintByUrl,
@@ -8,6 +8,52 @@ import {
   type FingerprintType,
 } from "./fingerprint.js";
 import { NORMALIZATION_VERSION } from "./normalize.js";
+
+/** Typ klucza korelacji - musi zgadzac sie z check-constraint `record_correlation_keys.key_type`. */
+export type CorrelationKeyType = "email" | "username" | "ip" | "phone" | "domain";
+
+/**
+ * Atrybuty adaptera, z ktorych wydobywamy klucze korelacji tozsamosci -
+ * ODREBNE od fingerprintow dedupu (patrz naglowek pliku migracji 0008).
+ * Nazwy atrybutow nie sa znormalizowanym kontraktem miedzy adapterami
+ * (`AdapterRecord.attrs` to wolny bag), wiec sprawdzamy kilka popularnych
+ * aliasow uzywanych przez istniejace adaptery (np. Snusbase zwraca `lastip`).
+ */
+const CORRELATION_ATTR_ALIASES: Record<CorrelationKeyType, string[]> = {
+  email: ["email"],
+  username: ["username"],
+  ip: ["ip", "lastip", "last_ip"],
+  phone: ["phone", "phonenumber", "phone_number"],
+  domain: ["domain"],
+};
+
+export function extractCorrelationKeys(record: AdapterRecord): { type: CorrelationKeyType; value: string }[] {
+  const attrs = record.attrs ?? {};
+  const keys: { type: CorrelationKeyType; value: string }[] = [];
+
+  for (const [type, aliases] of Object.entries(CORRELATION_ATTR_ALIASES) as [CorrelationKeyType, string[]][]) {
+    for (const alias of aliases) {
+      const raw = attrs[alias];
+      if (typeof raw !== "string" || raw.length === 0) continue;
+
+      const normalized =
+        type === "email"
+          ? normalizeEmail(raw)
+          : type === "ip"
+            ? normalizeIp(raw)
+            : type === "phone"
+              ? normalizePhone(raw)
+              : type === "domain"
+                ? normalizeDomain(raw)
+                : raw.trim().toLowerCase();
+
+      if (normalized) keys.push({ type, value: normalized });
+      break; // pierwszy obecny alias dla danego typu wygrywa - nie duplikujemy tego samego typu z dwoch aliasow.
+    }
+  }
+
+  return keys;
+}
 
 export interface DedupInput {
   ownerId: string;
@@ -137,6 +183,19 @@ export async function upsertNormalizedRecord(
      returning source_count`,
     [canonicalId]
   );
+
+  // 6) Klucze korelacji tozsamosci (e-mail/username/ip/telefon/domena) -
+  // ODREBNA warstwa od dedupu, patrz naglowek migracji 0008. Nigdy nie
+  // laczy automatycznie rekordow kanonicznych, tylko zapisuje sygnal do
+  // pozniejszego odpytania przez GET /canonical-records/:id/related.
+  for (const key of extractCorrelationKeys(record)) {
+    await client.query(
+      `insert into record_correlation_keys (canonical_id, owner_scope, owner_id, key_type, key_value)
+       values ($1, 'user', $2, $3, $4)
+       on conflict (owner_scope, owner_id, canonical_id, key_type, key_value) do nothing`,
+      [canonicalId, ownerId, key.type, key.value]
+    );
+  }
 
   return {
     canonicalId,

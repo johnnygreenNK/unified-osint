@@ -1,3 +1,5 @@
+import net from "node:net";
+
 /**
  * Normalizacja per-typ-pola (NIE globalna). Kazda funkcja dokumentuje,
  * co zachowuje i co zmienia - patrz docs/deduplication.md dla pelnego
@@ -95,4 +97,36 @@ export function normalizeDateToUtcIso(input: string | number | Date): string | n
   const date = new Date(input);
   if (Number.isNaN(date.getTime())) return null;
   return date.toISOString();
+}
+
+/**
+ * IP: waliduje przez `net.isIP` (fail closed - nieprawidlowy adres to null,
+ * nigdy niepewne zgadywanie). IPv4 zostaje jak jest (juz kanoniczny ciag
+ * dziesietny). IPv6 trafia przez `net.isIPv6`-zgodna reprezentacje
+ * tekstowa Node (`net.isIP` weryfikuje, ale nie normalizuje skroty "::" -
+ * do korelacji to wystarcza, bo ten sam zapisany adres od tego samego
+ * zrodla jest juz w jednej formie; porownywanie miedzy zrodlami z innym
+ * zapisem tego samego adresu IPv6 jest poza zakresem tej wersji).
+ */
+export function normalizeIp(input: string): string | null {
+  const trimmed = input.trim();
+  const version = net.isIP(trimmed);
+  if (version === 0) return null;
+  return version === 6 ? trimmed.toLowerCase() : trimmed;
+}
+
+/**
+ * Telefon: zachowuje tylko cyfry i prefiks "+", "00" na poczatku zamienia
+ * na "+" (powszechny zapis miedzynarodowego prefiksu). Wymaga co najmniej
+ * 7 cyfr (minimalna dlugosc realnego numeru), inaczej null - nie zgaduje
+ * brakujacego kodu kraju, bo falszywe polaczenie dwoch osob o podobnych
+ * lokalnych numerach bylby gorszy niz brak korelacji.
+ */
+export function normalizePhone(input: string): string | null {
+  let trimmed = input.trim();
+  if (trimmed.startsWith("00")) trimmed = `+${trimmed.slice(2)}`;
+  const hasPlus = trimmed.startsWith("+");
+  const digits = trimmed.replace(/[^\d]/g, "");
+  if (digits.length < 7) return null;
+  return hasPlus ? `+${digits}` : digits;
 }

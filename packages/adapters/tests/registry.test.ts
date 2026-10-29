@@ -8,7 +8,22 @@ describe("StaticAdapterRegistry / createDefaultRegistry", () => {
   it("rejestruje wszystkie oczekiwane adaptery pod ich id", () => {
     const registry = createDefaultRegistry();
     const ids = registry.list().map((a) => a.descriptor.id);
-    expect(ids.sort()).toEqual(["demo", "dns", "epieos", "intelx", "snusbase"].sort());
+    expect(ids.sort()).toEqual(
+      [
+        "demo",
+        "dns",
+        "epieos",
+        "intelx",
+        "snusbase",
+        "amass",
+        "trufflehog",
+        "gitleaks",
+        "sherlock",
+        "maigret",
+        "holehe",
+        "theharvester",
+      ].sort()
+    );
   });
 
   it("get() zwraca ten sam adapter co list() dla danego id", () => {
@@ -30,6 +45,13 @@ describe("StaticAdapterRegistry / createDefaultRegistry", () => {
     expect(registry.get("snusbase")?.isConfigured()).toBe(false);
     expect(registry.get("intelx")?.isConfigured()).toBe(false);
     expect(registry.get("epieos")?.isConfigured()).toBe(false);
+  });
+
+  it("adaptery CLI bez skonfigurowanej sciezki binarki sa not_configured", () => {
+    const registry = createDefaultRegistry();
+    for (const id of ["amass", "trufflehog", "gitleaks", "sherlock", "maigret", "holehe", "theharvester"]) {
+      expect(registry.get(id)?.isConfigured()).toBe(false);
+    }
   });
 });
 

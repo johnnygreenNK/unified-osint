@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { normalizeDomain, normalizeUrl, normalizeText, normalizeEmail } from "../src/dedup/normalize.js";
+import {
+  normalizeDomain,
+  normalizeUrl,
+  normalizeText,
+  normalizeEmail,
+  normalizeIp,
+  normalizePhone,
+} from "../src/dedup/normalize.js";
 
 describe("normalizeDomain", () => {
   it("lowercases and strips trailing dot", () => {
@@ -35,5 +42,34 @@ describe("normalizeText", () => {
 describe("normalizeEmail", () => {
   it("lowercase tylko domeny, nie czesci lokalnej (kropki/plusy zachowane)", () => {
     expect(normalizeEmail("John.Doe+test@EXAMPLE.COM")).toBe("john.doe+test@example.com");
+  });
+});
+
+describe("normalizeIp", () => {
+  it("akceptuje IPv4 bez zmian", () => {
+    expect(normalizeIp("203.0.113.42")).toBe("203.0.113.42");
+  });
+
+  it("lowercase IPv6", () => {
+    expect(normalizeIp("2001:DB8::1")).toBe("2001:db8::1");
+  });
+
+  it("odrzuca nieprawidlowy adres (fail closed)", () => {
+    expect(normalizeIp("not-an-ip")).toBeNull();
+    expect(normalizeIp("999.999.999.999")).toBeNull();
+  });
+});
+
+describe("normalizePhone", () => {
+  it("zachowuje prefiks + i cyfry, usuwa separatory", () => {
+    expect(normalizePhone("+48 123-456-789")).toBe("+48123456789");
+  });
+
+  it("zamienia prefiks 00 na +", () => {
+    expect(normalizePhone("0048123456789")).toBe("+48123456789");
+  });
+
+  it("odrzuca numery zbyt krotkie, zamiast zgadywac kod kraju", () => {
+    expect(normalizePhone("12345")).toBeNull();
   });
 });

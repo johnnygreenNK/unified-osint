@@ -12,6 +12,7 @@ import {
   type SessionUser,
   type SourceInfo,
 } from "@/lib/api";
+import { RelatedRecordsPanel } from "@/components/RelatedRecordsPanel";
 
 const QUERY_TYPES = ["", "email", "username", "name", "domain", "ip", "phone", "hash", "url", "text"] as const;
 
@@ -168,12 +169,20 @@ export default function DashboardPage() {
             </p>
           )}
           {events.length === 0 && <p className="muted">Czekam na pierwsze wyniki...</p>}
-          {events.map((ev, i) => (
-            <div key={i} className="result-item">
-              <span className="badge">{ev.type}</span>{" "}
-              <code style={{ fontSize: 12 }}>{JSON.stringify(ev.payload)}</code>
-            </div>
-          ))}
+          {events.map((ev, i) => {
+            const canonicalRecordId =
+              (ev.type === "result.added" || ev.type === "result.merged") &&
+              typeof ev.payload.canonicalRecordId === "string"
+                ? ev.payload.canonicalRecordId
+                : null;
+            return (
+              <div key={i} className="result-item">
+                <span className="badge">{ev.type}</span>{" "}
+                <code style={{ fontSize: 12 }}>{JSON.stringify(ev.payload)}</code>
+                {canonicalRecordId && <RelatedRecordsPanel canonicalRecordId={canonicalRecordId} />}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

@@ -26,7 +26,7 @@ export async function buildAppContext(): Promise<AppContext> {
   const logger = createLogger("api", env.LOG_LEVEL);
   const pool = getPool(env.DATABASE_URL);
   const boss = await getBoss(env.DATABASE_URL, env.WORKER_PG_SCHEMA);
-  const registry = createDefaultRegistry();
+  const registry = createDefaultRegistry(env);
 
   await syncSourcesFromRegistry(pool, registry);
 

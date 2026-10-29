@@ -71,6 +71,38 @@ export const envSchema = z.object({
 
   OUTBOUND_HTTP_ALLOW_PRIVATE_NETWORKS: boolFromString,
   OUTBOUND_HTTP_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
+
+  /**
+   * Sciezki do binarek natywnych narzedzi CLI (Faza 3) - uruchamianych
+   * lokalnie na Windows bez kontenerow (decyzja uzytkownika). Brak pliku pod
+   * dana sciezka = adapter wchodzi w status `not_configured` (prawdziwy stan,
+   * nie "wylaczony na sile"). Domyslne wartosci wskazuja miejsca, w ktorych
+   * narzedzia zostaly faktycznie zainstalowane w tym srodowisku
+   * (winget/pipx/go build) - nadpisywalne w .env, gdy ktos zainstaluje je
+   * gdzie indziej lub doda do PATH.
+   */
+  CLI_ADAPTER_TIMEOUT_MS: z.coerce.number().int().positive().default(120000),
+  GITLEAKS_BIN_PATH: z.string().default(
+    "C:\\Users\\user\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gitleaks.Gitleaks_Microsoft.Winget.Source_8wekyb3d8bbwe\\gitleaks.exe"
+  ),
+  AMASS_BIN_PATH: z.string().default(
+    "C:\\Users\\user\\AppData\\Local\\Microsoft\\WinGet\\Packages\\OWASP.Amass_Microsoft.Winget.Source_8wekyb3d8bbwe\\amass_Windows_amd64\\amass.exe"
+  ),
+  TRUFFLEHOG_BIN_PATH: z.string().default("C:\\Users\\user\\go\\bin\\trufflehog.exe"),
+  SHERLOCK_BIN_PATH: z.string().default(
+    "C:\\Users\\user\\Desktop\\osint\\.pytools\\sherlock\\Scripts\\sherlock.exe"
+  ),
+  MAIGRET_BIN_PATH: z.string().default(
+    "C:\\Users\\user\\Desktop\\osint\\.pytools\\maigret\\Scripts\\maigret.exe"
+  ),
+  HOLEHE_BIN_PATH: z.string().default(
+    "C:\\Users\\user\\Desktop\\osint\\.pytools\\holehe\\Scripts\\holehe.exe"
+  ),
+  THEHARVESTER_BIN_PATH: z.string().default(
+    "C:\\Users\\user\\Desktop\\osint\\.pytools\\theHarvester\\Scripts\\theHarvester.exe"
+  ),
+  /** Git wymagany przez adapter Gitleaks (klonuje repo do tmp przed skanem) - zwykle na PATH. */
+  GIT_BIN_PATH: z.string().default("git"),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -18,7 +18,7 @@ async function main(): Promise<void> {
   const logger = createLogger("worker", env.LOG_LEVEL);
   const pool = getPool(env.DATABASE_URL);
   const boss = await getBoss(env.DATABASE_URL, env.WORKER_PG_SCHEMA);
-  const registry = createDefaultRegistry();
+  const registry = createDefaultRegistry(env);
   const circuitBreaker = new CircuitBreaker();
 
   await syncSourcesFromRegistry(pool, registry);
